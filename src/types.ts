@@ -17,3 +17,12 @@ export interface Question {
   correctAnswer: number;
   explanation: string;
 }
+
+export interface Reminder {
+  id: string;
+  topicId?: string;
+  topicTitle?: string;
+  time: number; // ISO string
+  message: string;
+  triggered: boolean;
+}

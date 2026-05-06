@@ -11,11 +11,15 @@ import {
   RefreshCw,
   Search,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Bell,
+  X,
+  Volume2,
+  Plus
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { TOPICS } from './constants';
-import { Topic, StudyMaterial, Question } from './types';
+import { Topic, StudyMaterial, Question, Reminder } from './types';
 import { generateStudyMaterial } from './services/geminiService';
 import { cn } from './lib/utils';
 
@@ -27,6 +31,15 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [userAnswers, setUserAnswers] = useState<Record<string, number>>({});
   const [showResults, setShowResults] = useState(false);
+
+  // Reminders state
+  const [reminders, setReminders] = useState<Reminder[]>(() => {
+    const saved = localStorage.getItem('study_reminders');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [activeNotification, setActiveNotification] = useState<Reminder | null>(null);
+  const [reminderMinutes, setReminderMinutes] = useState(30);
 
   // Set the exam date relative to current time for demo, but user said 9th May.
   // Today is May 6th, 2026.
@@ -49,6 +62,51 @@ export default function App() {
     const timer = setInterval(updateCountdown, 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // Check reminders
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setReminders(prev => {
+        let hasChanges = false;
+        const updated = prev.map(r => {
+          if (!r.triggered && r.time <= now) {
+            setActiveNotification(r);
+            hasChanges = true;
+            return { ...r, triggered: true };
+          }
+          return r;
+        });
+        if (hasChanges) {
+          localStorage.setItem('study_reminders', JSON.stringify(updated));
+          return updated;
+        }
+        return prev;
+      });
+    }, 5000); // Check every 5s for performance
+    return () => clearInterval(interval);
+  }, []);
+
+  const addReminder = (topic?: Topic) => {
+    const newReminder: Reminder = {
+      id: Math.random().toString(36).substr(2, 9),
+      topicId: topic?.id,
+      topicTitle: topic?.title || 'General Study Session',
+      time: Date.now() + reminderMinutes * 60 * 1000,
+      message: topic ? `महत्वपूर्ण: ${topic.title} को पढ़ने का समय हो गया है!` : 'पढ़ाई का समय! अपनी किताबों पर ध्यान दें।',
+      triggered: false
+    };
+    const updated = [newReminder, ...reminders].slice(0, 50); // Limit to 50
+    setReminders(updated);
+    localStorage.setItem('study_reminders', JSON.stringify(updated));
+    setShowReminderModal(false);
+  };
+
+  const removeReminder = (id: string) => {
+    const updated = reminders.filter(r => r.id !== id);
+    setReminders(updated);
+    localStorage.setItem('study_reminders', JSON.stringify(updated));
+  };
 
   const filteredTopics = useMemo(() => 
     TOPICS.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase())),
@@ -104,6 +162,16 @@ export default function App() {
           </div>
 
           <div className="hidden md:flex items-center gap-8">
+            <button 
+              onClick={() => setShowReminderModal(true)}
+              className="relative p-3 bg-stone-50 hover:bg-stone-100 rounded-2xl transition-colors border border-stone-100 text-stone-500 hover:text-orange-600"
+            >
+              <Bell size={20} />
+              {reminders.filter(r => !r.triggered).length > 0 && (
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-orange-600 border-2 border-white rounded-full" />
+              )}
+            </button>
+
             <div className="flex flex-col items-end">
               <span className="text-[10px] font-bold text-orange-600 uppercase tracking-tighter">Exam Countdown</span>
               <div className="flex items-center gap-2 text-stone-900">
@@ -228,10 +296,19 @@ export default function App() {
                     </div>
                     <h2 className="text-4xl font-black text-stone-900 leading-none">{selectedTopic.title}</h2>
                   </div>
-                  <button className="px-6 py-3 bg-stone-900 text-white rounded-2xl font-bold flex items-center gap-3 hover:bg-stone-800 transition shadow-lg shadow-stone-200">
-                    <Download size={20} />
-                    PDF डाउनलोड
-                  </button>
+                  <div className="flex flex-wrap items-center justify-center md:justify-end gap-3">
+                    <button className="px-6 py-3 bg-stone-900 text-white rounded-2xl font-bold flex items-center gap-3 hover:bg-stone-800 transition shadow-lg shadow-stone-200">
+                      <Download size={20} />
+                      PDF डाउनलोड
+                    </button>
+                    <button 
+                      onClick={() => setShowReminderModal(true)}
+                      className="px-6 py-3 bg-orange-600 text-white rounded-2xl font-bold flex items-center gap-3 hover:bg-orange-700 transition shadow-lg shadow-orange-200"
+                    >
+                      <Bell size={20} />
+                      रिमाइंडर
+                    </button>
+                  </div>
                 </div>
 
                 {loading ? (
@@ -419,7 +496,175 @@ export default function App() {
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e7e5e4; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #d6d3d1; }
+
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          height: 24px;
+          width: 24px;
+          border-radius: 50%;
+          background: #ea580c;
+          cursor: pointer;
+          border: 4px solid white;
+          box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
       `}</style>
+
+      {/* Reminder Notification */}
+      <AnimatePresence>
+        {activeNotification && (
+          <motion.div
+            initial={{ opacity: 0, x: 100, y: 100 }}
+            animate={{ opacity: 1, x: 0, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed bottom-10 right-10 z-[100] w-96"
+          >
+            <div className="bg-stone-900 text-white p-8 rounded-[2.5rem] shadow-2xl border border-white/10 relative overflow-hidden">
+               <div className="absolute -top-6 -right-6 text-orange-600/10">
+                  <Bell size={120} />
+               </div>
+               <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center">
+                        <Volume2 size={24} className="animate-pulse" />
+                    </div>
+                    <button 
+                      onClick={() => setActiveNotification(null)}
+                      className="p-2 hover:bg-white/10 rounded-full transition"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                  <h4 className="text-xl font-black mb-2">स्टडी रिमाइंडर! 🔔</h4>
+                  <p className="text-stone-400 font-medium text-sm leading-relaxed mb-6">{activeNotification.message}</p>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        if (activeNotification.topicId) {
+                          const topic = TOPICS.find(t => t.id === activeNotification.topicId);
+                          if (topic) handleSelectTopic(topic);
+                        }
+                        setActiveNotification(null);
+                      }}
+                      className="flex-1 py-3 bg-orange-600 hover:bg-orange-700 rounded-xl font-bold text-sm transition"
+                    >
+                      अभी पढ़ें
+                    </button>
+                    <button 
+                      onClick={() => setActiveNotification(null)}
+                      className="px-6 py-3 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-xs text-stone-500 transition"
+                    >
+                      बाद में
+                    </button>
+                  </div>
+               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Generic Reminder Modal */}
+      <AnimatePresence>
+        {showReminderModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowReminderModal(false)}
+              className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-[3rem] shadow-2xl overflow-hidden overflow-y-auto max-h-[90vh]"
+            >
+              <div className="p-10">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-2xl font-black flex items-center gap-3">
+                    <Clock className="text-orange-600" />
+                    स्टडी टाइमर सेट करें
+                  </h3>
+                  <button onClick={() => setShowReminderModal(false)} className="p-3 hover:bg-stone-50 rounded-2xl">
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="space-y-8">
+                  <div className="bg-stone-50 p-8 rounded-[2rem] border border-stone-100">
+                    <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-4">Set Duration (Minutes)</label>
+                    <div className="flex items-center gap-6">
+                      <input 
+                        type="range" 
+                        min="5" 
+                        max="120" 
+                        step="5"
+                        value={reminderMinutes}
+                        onChange={(e) => setReminderMinutes(parseInt(e.target.value))}
+                        className="flex-1 h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-orange-600"
+                      />
+                      <span className="w-20 text-center font-black text-2xl text-stone-900 border-b-2 border-orange-200 pb-1">
+                        {reminderMinutes}m
+                      </span>
+                    </div>
+                    <div className="flex justify-between mt-4">
+                      { [15, 30, 45, 60].map(m => (
+                        <button 
+                          key={m}
+                          onClick={() => setReminderMinutes(m)}
+                          className={cn(
+                            "px-4 py-2 rounded-xl text-xs font-bold transition",
+                            reminderMinutes === m ? "bg-orange-600 text-white" : "bg-white text-stone-400 border border-stone-100 hover:border-orange-200"
+                          )}
+                        >
+                          {m}m
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => addReminder(selectedTopic || undefined)}
+                    className="w-full py-5 bg-stone-900 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:bg-orange-600 transition-all shadow-xl shadow-stone-200"
+                  >
+                    <Plus size={24} />
+                    {selectedTopic ? `${selectedTopic.title} के लिए रिमाइंडर जोड़ें` : 'सामान्य अध्ययन रिमाइंडर जोड़ें'}
+                  </button>
+
+                  <div className="pt-6 border-t border-stone-100">
+                    <h4 className="text-stone-400 text-[10px] font-black uppercase tracking-widest mb-4">Active & Past Reminders</h4>
+                    <div className="space-y-3">
+                      {reminders.length === 0 ? (
+                        <p className="text-center py-6 text-stone-300 font-medium italic text-sm">कोई रिमाइंडर सक्रिय नहीं है</p>
+                      ) : (
+                        reminders.map(r => (
+                          <div key={r.id} className={cn(
+                            "p-4 rounded-2xl border flex items-center justify-between",
+                            r.triggered ? "bg-stone-50 border-stone-100 opacity-50" : "bg-white border-orange-100 shadow-sm"
+                          )}>
+                            <div className="flex items-center gap-3">
+                              <Bell size={16} className={r.triggered ? "text-stone-300" : "text-orange-500"} />
+                              <div>
+                                <p className="text-sm font-bold text-stone-900">{r.topicTitle}</p>
+                                <p className="text-[10px] text-stone-400 font-medium">
+                                  {new Date(r.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
+                            <button onClick={() => removeReminder(r.id)} className="p-2 hover:text-red-500 text-stone-300">
+                              <X size={16} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
