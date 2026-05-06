@@ -386,7 +386,10 @@ export default function App() {
                     <GraduationCap size={24} />
                     <span className="font-black">STUDY ASSISTANT</span>
                 </div>
-                <p className="text-xs font-bold uppercase tracking-widest">© 2026 Rajasthan Lab Assistant Exam Preparation • All Rights Reserved</p>
+                <div className="text-center">
+                  <p className="text-xs font-bold uppercase tracking-widest mb-1">© 2026 Rajasthan Lab Assistant Exam Preparation</p>
+                  <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Created by _rahul18x</p>
+                </div>
                 <div className="flex items-center gap-6">
                     <span className="w-1.5 h-1.5 bg-orange-600 rounded-full animate-bounce" />
                     <span className="w-1.5 h-1.5 bg-orange-600 rounded-full animate-bounce [animation-delay:0.2s]" />
