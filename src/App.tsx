@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   BookOpen, 
@@ -15,16 +15,23 @@ import {
   Bell,
   X,
   Volume2,
-  Plus
+  Plus,
+  MessageSquare,
+  Send,
+  Sparkles,
+  Camera,
+  Image as ImageIcon,
+  FileText
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { TOPICS } from './constants';
-import { Topic, StudyMaterial, Question, Reminder } from './types';
-import { generateStudyMaterial } from './services/geminiService';
+import { TOPICS, MODEL_PAPERS } from './constants';
+import { Topic, StudyMaterial, Question, Reminder, ModelPaper } from './types';
+import { generateStudyMaterial, generateModelPaper, chatWithAI } from './services/geminiService';
 import { cn } from './lib/utils';
 
 export default function App() {
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
+  const [selectedPaper, setSelectedPaper] = useState<ModelPaper | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [studyMaterial, setStudyMaterial] = useState<StudyMaterial | null>(null);
   const [loading, setLoading] = useState(false);
@@ -40,6 +47,21 @@ export default function App() {
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [activeNotification, setActiveNotification] = useState<Reminder | null>(null);
   const [reminderMinutes, setReminderMinutes] = useState(30);
+
+  // Chat state
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'model'; text: string }[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, chatLoading]);
 
   // Set the exam date relative to current time for demo, but user said 9th May.
   // Today is May 6th, 2026.
@@ -131,12 +153,69 @@ export default function App() {
 
   const handleSelectTopic = (topic: Topic) => {
     setSelectedTopic(topic);
+    setSelectedPaper(null);
     fetchMaterial(topic);
+  };
+
+  const handleSelectPaper = async (paper: ModelPaper) => {
+    setSelectedPaper(paper);
+    setSelectedTopic(null);
+    setLoading(true);
+    setError(null);
+    setStudyMaterial(null);
+    setUserAnswers({});
+    setShowResults(false);
+    try {
+      const material = await generateModelPaper(paper.title, paper.id);
+      setStudyMaterial(material);
+    } catch (err) {
+      setError('मॉडल पेपर प्राप्त करने में विफल।');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAnswer = (questionId: string, answerIndex: number) => {
     if (showResults) return;
     setUserAnswers(prev => ({ ...prev, [questionId]: answerIndex }));
+  };
+
+  const handleSendMessage = async (customMessage?: string) => {
+    const finalInput = customMessage || chatInput;
+    if (!finalInput.trim() && !selectedImage) return;
+
+    const userMessage = finalInput.trim() || (selectedImage ? "कृपया इस चित्र का विश्लेषण करें।" : "");
+    setChatMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+    setChatInput('');
+    const currentImage = selectedImage;
+    setSelectedImage(null);
+    setChatLoading(true);
+
+    try {
+      const history = chatMessages.map(msg => ({
+        role: msg.role,
+        parts: [{ text: msg.text }]
+      }));
+      
+      const cleanImageBase64 = currentImage?.split(',')[1];
+      const response = await chatWithAI(userMessage, history, cleanImageBase64);
+      setChatMessages(prev => [...prev, { role: 'model', text: response }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: 'model', text: "माफी चाहता हूँ, मैं अभी उत्तर नहीं दे पा रहा हूँ।" }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const calculateScore = () => {
@@ -156,7 +235,22 @@ export default function App() {
               <GraduationCap size={28} />
             </div>
             <div>
-              <h1 className="font-black text-xl leading-tight tracking-tight">RAJ LAB ASSISTANT</h1>
+              <div className="flex items-center gap-4">
+                <h1 className="font-black text-xl leading-tight tracking-tight">RAJ LAB ASSISTANT</h1>
+                <div className="flex flex-col gap-1.5">
+                  <a 
+                    href="https://instagram.com/_rahul18x" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-1.5 bg-gradient-to-tr from-[#FFB400] via-[#FF0054] to-[#9E00FF] hover:scale-105 transition-all text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg hover:shadow-[#FF0054]/20 group whitespace-nowrap"
+                  >
+                    <svg className="w-3 h-3 fill-current group-hover:rotate-12 transition-transform" viewBox="0 0 24 24">
+                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.266.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                    </svg>
+                    Insta _rahul18x
+                  </a>
+                </div>
+              </div>
               <p className="text-[10px] text-stone-500 font-bold tracking-widest uppercase">Smart Revision Portal</p>
             </div>
           </div>
@@ -234,80 +328,135 @@ export default function App() {
             </div>
           </div>
 
-          <div className="p-8 bg-gradient-to-br from-orange-600 to-orange-700 rounded-[2.5rem] text-white shadow-2xl shadow-orange-200 relative overflow-hidden group">
+          <button 
+            onClick={() => setShowChat(true)}
+            className="w-full p-8 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-[2.5rem] text-white shadow-2xl shadow-indigo-200 relative overflow-hidden group text-left"
+          >
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-              <GraduationCap size={120} />
+              <Sparkles size={120} />
             </div>
             <div className="relative z-10">
-              <h4 className="text-2xl font-black mb-2">9 मई की तैयारी!</h4>
-              <p className="text-orange-100 text-sm font-medium leading-relaxed">
-                समय कम है, इसलिए हमने केवल सबसे महत्वपूर्ण टॉपिक्स को यहाँ संकलित किया है। शुभकामनाएँ!
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <MessageSquare size={20} />
+                </div>
+                <h4 className="text-2xl font-black">AI Assistant</h4>
+              </div>
+              <p className="text-indigo-100 text-sm font-medium leading-relaxed">
+                अपने किसी भी सवाल का जवाब पाएं। यहाँ पूछें! (Chat with AI)
               </p>
             </div>
-          </div>
+          </button>
         </aside>
 
         {/* Content Area */}
         <section className="lg:col-span-8">
           <AnimatePresence mode="wait">
-            {!selectedTopic ? (
-               <motion.div 
-                key="empty"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.05 }}
-                className="bg-white h-full min-h-[600px] p-12 rounded-[3.5rem] border border-stone-200 flex flex-col items-center justify-center text-center space-y-8"
-               >
-                 <div className="relative">
-                    <div className="w-32 h-32 bg-orange-50 rounded-full flex items-center justify-center text-orange-200">
-                        <BookOpen size={64} />
-                    </div>
-                    <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-white rounded-full border border-stone-100 shadow-lg flex items-center justify-center text-orange-600">
-                       <CheckCircle2 size={24} />
-                    </div>
-                 </div>
-                 
-                 <div className="space-y-3">
-                    <h2 className="text-3xl font-black text-stone-900 tracking-tight">अपनी रिवीजन यात्रा शुरू करें</h2>
-                    <p className="text-stone-400 font-medium max-w-sm mx-auto leading-relaxed">
-                      बाईं ओर सूची से किसी भी विषय का चयन करें। AI आपके लिए महत्वपूर्ण नोट्स और अभ्यास प्रश्न तैयार करेगा।
-                    </p>
-                 </div>
+            {!selectedTopic && !selectedPaper ? (
+               <div className="space-y-10">
+                <motion.div 
+                  key="empty"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.05 }}
+                  className="bg-white p-12 rounded-[3.5rem] border border-stone-200 flex flex-col items-center justify-center text-center space-y-8"
+                >
+                  <div className="relative">
+                      <div className="w-32 h-32 bg-orange-50 rounded-full flex items-center justify-center text-orange-200">
+                          <BookOpen size={64} />
+                      </div>
+                      <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-white rounded-full border border-stone-100 shadow-lg flex items-center justify-center text-orange-600">
+                        <CheckCircle2 size={24} />
+                      </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                      <h2 className="text-3xl font-black text-stone-900 tracking-tight">अपनी रिवीजन यात्रा शुरू करें</h2>
+                      <p className="text-stone-400 font-medium max-w-sm mx-auto leading-relaxed">
+                        बाईं ओर सूची से किसी भी विषय का चयन करें। AI आपके लिए महत्वपूर्ण नोट्स और अभ्यास प्रश्न तैयार करेगा।
+                      </p>
+                  </div>
 
-                 <div className="flex flex-wrap justify-center gap-3">
-                    {['नदी तंत्र', 'जनगणना 2011', 'वन नीति', 'खनिज संसाधन'].map(tag => (
-                      <span key={tag} className="px-4 py-2 bg-stone-50 border border-stone-100 rounded-full text-xs font-bold text-stone-400">#{tag}</span>
+                  <div className="flex flex-wrap justify-center gap-3">
+                      {['नदी तंत्र', 'जनगणना 2011', 'वन नीति', 'खनिज संसाधन'].map(tag => (
+                        <span key={tag} className="px-4 py-2 bg-stone-50 border border-stone-100 rounded-full text-xs font-bold text-stone-400">#{tag}</span>
+                      ))}
+                  </div>
+                </motion.div>
+
+                {/* Model Papers Section */}
+                <motion.div
+                  initial={{ opacity: 0, y: 40 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-center justify-between px-4">
+                    <h3 className="text-2xl font-black flex items-center gap-3">
+                      <Layout className="text-orange-600" />
+                      मॉडल पेपर्स (Previous Papers)
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {MODEL_PAPERS.map((paper) => (
+                      <button
+                        key={paper.id}
+                        onClick={() => handleSelectPaper(paper)}
+                        className="p-8 bg-white border border-stone-200 rounded-[2.5rem] text-left hover:border-orange-500 hover:shadow-2xl hover:shadow-orange-100 transition-all group"
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="px-3 py-1 bg-stone-100 text-stone-500 rounded-lg text-[10px] font-black uppercase tracking-widest">{paper.year}</span>
+                          <ChevronRight className="text-stone-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all" size={20} />
+                        </div>
+                        <h4 className="text-xl font-black mb-2 text-stone-900 group-hover:text-orange-600 transition-colors">{paper.title}</h4>
+                        <p className="text-stone-400 text-sm font-medium leading-relaxed">{paper.description}</p>
+                      </button>
                     ))}
-                 </div>
-               </motion.div>
+                  </div>
+                </motion.div>
+               </div>
             ) : (
               <motion.div 
-                key={selectedTopic.id}
+                key={selectedTopic?.id || selectedPaper?.id}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -30 }}
                 className="space-y-8 pb-20"
               >
-                {/* Header for Topic */}
+                {/* Header for Topic/Paper */}
                 <div className="bg-white p-10 rounded-[3.5rem] border border-stone-200 shadow-xl shadow-stone-100/50 flex flex-col md:flex-row items-center justify-between gap-6">
                   <div className="text-center md:text-left">
                     <div className="flex items-center justify-center md:justify-start gap-2 mb-3">
-                      <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">Smart Study</span>
+                      <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest bg-orange-50 px-3 py-1.5 rounded-full border border-orange-100">
+                        {selectedPaper ? 'Previous Paper Analysis' : 'Smart Study'}
+                      </span>
                     </div>
-                    <h2 className="text-4xl font-black text-stone-900 leading-none">{selectedTopic.title}</h2>
+                    <h2 className="text-4xl font-black text-stone-900 leading-none">{selectedTopic?.title || selectedPaper?.title}</h2>
                   </div>
                   <div className="flex flex-wrap items-center justify-center md:justify-end gap-3">
+                    <button 
+                      onClick={() => {
+                        setSelectedTopic(null);
+                        setSelectedPaper(null);
+                        setStudyMaterial(null);
+                      }}
+                      className="px-6 py-3 bg-stone-50 text-stone-500 rounded-2xl font-bold flex items-center gap-3 hover:bg-stone-100 transition"
+                    >
+                      वापस जाएं
+                    </button>
                     <button className="px-6 py-3 bg-stone-900 text-white rounded-2xl font-bold flex items-center gap-3 hover:bg-stone-800 transition shadow-lg shadow-stone-200">
                       <Download size={20} />
                       PDF डाउनलोड
                     </button>
-                    <button 
-                      onClick={() => setShowReminderModal(true)}
-                      className="px-6 py-3 bg-orange-600 text-white rounded-2xl font-bold flex items-center gap-3 hover:bg-orange-700 transition shadow-lg shadow-orange-200"
-                    >
-                      <Bell size={20} />
-                      रिमाइंडर
-                    </button>
+                    {!selectedPaper && (
+                      <button 
+                        onClick={() => setShowReminderModal(true)}
+                        className="px-6 py-3 bg-orange-600 text-white rounded-2xl font-bold flex items-center gap-3 hover:bg-orange-700 transition shadow-lg shadow-orange-200"
+                      >
+                        <Bell size={20} />
+                        रिमाइंडर
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -463,9 +612,26 @@ export default function App() {
                     <GraduationCap size={24} />
                     <span className="font-black">STUDY ASSISTANT</span>
                 </div>
-                <div className="text-center">
-                  <p className="text-xs font-bold uppercase tracking-widest mb-1">© 2026 Rajasthan Lab Assistant Exam Preparation</p>
-                  <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">Created by _rahul18x</p>
+                <div className="text-center flex flex-col items-center gap-4">
+                  <p className="text-xs font-bold uppercase tracking-widest opacity-60">© 2026 Rajasthan Lab Assistant Exam Preparation</p>
+                  <div className="flex flex-col items-center gap-3">
+                    <p className="text-2xl italic font-serif text-stone-900 tracking-tighter">
+                      Created by <span className="text-orange-600 font-black">_rahul18x</span>
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <a 
+                        href="https://instagram.com/_rahul18x" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-tr from-[#FFB400] via-[#FF0054] to-[#9E00FF] hover:scale-105 transition-all text-white rounded-full text-xs font-black uppercase tracking-widest shadow-lg hover:shadow-[#FF0054]/30 group"
+                      >
+                        <svg className="w-4 h-4 fill-current group-hover:rotate-12 transition-transform" viewBox="0 0 24 24">
+                          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.266.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                        </svg>
+                        Insta _rahul18x
+                      </a>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex items-center gap-6">
                     <span className="w-1.5 h-1.5 bg-orange-600 rounded-full animate-bounce" />
@@ -659,6 +825,156 @@ export default function App() {
                       )}
                     </div>
                   </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* AI Chat Modal */}
+      <AnimatePresence>
+        {showChat && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowChat(false)}
+              className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, x: 100, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 100, scale: 0.9 }}
+              className="relative w-full max-w-2xl bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col h-[80vh]"
+            >
+              <div className="p-8 border-b border-stone-100 flex items-center justify-between bg-stone-50">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white">
+                    <Sparkles size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black">AI Study Assistant</h3>
+                    <p className="text-stone-400 text-[10px] font-black uppercase tracking-widest">Ask anything about Lab Assistant Exam</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowChat(false)} className="p-3 hover:bg-stone-200 rounded-2xl transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Chat Messages */}
+              <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar bg-white">
+                {chatMessages.length === 0 && (
+                  <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-30">
+                    <MessageSquare size={64} />
+                    <p className="font-bold max-w-xs">नमस्ते! मैं आपका AI अध्ययन सहायक हूँ। आप मुझसे परीक्षा से संबंधित कुछ भी पूछ सकते हैं।</p>
+                  </div>
+                )}
+                {chatMessages.map((msg, idx) => (
+                  <div key={idx} className={cn(
+                    "flex flex-col max-w-[85%]",
+                    msg.role === 'user' ? "ml-auto items-end" : "mr-auto items-start"
+                  )}>
+                    <div className={cn(
+                      "p-5 rounded-[2rem]",
+                      msg.role === 'user' 
+                        ? "bg-indigo-600 text-white rounded-tr-none" 
+                        : "bg-stone-50 text-stone-800 rounded-tl-none border border-stone-100"
+                    )}>
+                      <div className="markdown-body text-inherit font-medium text-sm">
+                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-stone-300 mt-2">
+                      {msg.role === 'user' ? 'You' : 'Assistant'}
+                    </span>
+                  </div>
+                ))}
+                {chatLoading && (
+                  <div className="flex items-center gap-2 text-stone-300 ml-2">
+                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" />
+                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Chat Input */}
+              <div className="p-6 bg-stone-50 border-t border-stone-100 space-y-4">
+                {/* Image Preview */}
+                {selectedImage && (
+                  <div className="relative inline-block">
+                    <img 
+                      src={selectedImage} 
+                      alt="Selected" 
+                      className="w-20 h-20 object-cover rounded-xl border-2 border-indigo-500 shadow-lg" 
+                    />
+                    <button 
+                      onClick={() => setSelectedImage(null)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-md hover:bg-red-600 transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Quick Actions */}
+                <div className="flex flex-wrap gap-2 pb-2">
+                  <button 
+                    onClick={() => handleSendMessage("कृपया मेरे लिए एक महत्वपूर्ण टॉपिक का मॉडल पेपर तैयार करें।")}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-full text-[10px] font-black uppercase tracking-widest text-stone-500 hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-sm"
+                  >
+                    <FileText size={14} />
+                    Generate Paper
+                  </button>
+                  <button 
+                    onClick={() => handleSendMessage("आज के लिए 5 महत्वपूर्ण राजस्थान GK के सवाल बताएं।")}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-full text-[10px] font-black uppercase tracking-widest text-stone-500 hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-sm"
+                  >
+                    <Sparkles size={14} />
+                    GK Quiz
+                  </button>
+                  <button 
+                    onClick={() => handleSendMessage("बायोलॉजी (Biology) के सबसे महत्वपूर्ण टॉपिक्स की लिस्ट बताएं।")}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-stone-200 rounded-full text-[10px] font-black uppercase tracking-widest text-stone-500 hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-sm"
+                  >
+                    <BookOpen size={14} />
+                    Bio Tips
+                  </button>
+                </div>
+
+                <div className="flex gap-4">
+                  <input 
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-14 h-14 bg-white border border-stone-200 text-stone-400 hover:text-indigo-600 hover:border-indigo-500 rounded-2xl flex items-center justify-center transition-all shadow-sm"
+                  >
+                    <Camera size={24} />
+                  </button>
+                  <input 
+                    type="text" 
+                    placeholder="अपना सवाल यहाँ लिखें या फोटो अपलोड करें..."
+                    className="flex-1 px-6 py-4 bg-white border border-stone-200 rounded-[1.5rem] outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-500/10 transition-all font-medium text-sm"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                  />
+                  <button 
+                    onClick={() => handleSendMessage()}
+                    disabled={chatLoading || (!chatInput.trim() && !selectedImage)}
+                    className="w-14 h-14 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100 transition-all"
+                  >
+                    <Send size={24} />
+                  </button>
                 </div>
               </div>
             </motion.div>

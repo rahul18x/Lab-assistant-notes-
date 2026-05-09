@@ -26,3 +26,10 @@ export interface Reminder {
   message: string;
   triggered: boolean;
 }
+
+export interface ModelPaper {
+  id: string;
+  year: string;
+  title: string;
+  description: string;
+}
