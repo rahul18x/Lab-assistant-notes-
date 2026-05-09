@@ -21,7 +21,11 @@ import {
   Sparkles,
   Camera,
   Image as ImageIcon,
-  FileText
+  FileText,
+  Book,
+  Pen,
+  Pencil,
+  Ruler
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { TOPICS, MODEL_PAPERS } from './constants';
@@ -226,7 +230,122 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFCFB] font-sans text-stone-900 selection:bg-orange-100 selection:text-orange-900">
+    <div className="min-h-screen bg-[#FDFCFB] font-sans text-stone-900 selection:bg-orange-100 selection:text-orange-900 overflow-x-hidden">
+      {/* Colorful 3D Animated Background */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.2, 1],
+            x: [0, 50, 0],
+            y: [0, 30, 0],
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-indigo-200/30 rounded-full blur-[120px]"
+        />
+        <motion.div 
+          animate={{ 
+            scale: [1.2, 1, 1.2],
+            x: [0, -40, 0],
+            y: [0, 60, 0],
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+          className="absolute -bottom-[10%] -right-[10%] w-[60%] h-[60%] bg-orange-200/30 rounded-full blur-[120px]"
+        />
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.5, 1],
+            opacity: [0.1, 0.2, 0.1],
+          }}
+          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40%] h-[40%] bg-pink-200/10 rounded-full blur-[100px]"
+        />
+
+        {/* Floating Icons */}
+        {[...Array(6)].map((_, i) => (
+          <motion.div
+            key={`book-${i}`}
+            initial={{ 
+              x: Math.random() * 100 + "%", 
+              y: Math.random() * 100 + "%",
+              rotate: Math.random() * 360,
+              opacity: 0
+            }}
+            animate={{ 
+              x: [null, (Math.random() - 0.5) * 200 + "px"],
+              y: [null, (Math.random() - 0.5) * 200 + "px"],
+              rotate: [null, Math.random() * 360],
+              opacity: [0, 0.15, 0],
+              scale: [0.8, 1.2, 0.8]
+            }}
+            transition={{ 
+              duration: 15 + Math.random() * 10, 
+              repeat: Infinity, 
+              ease: "easeInOut",
+              delay: i * 2
+            }}
+            className="absolute text-orange-600/20"
+          >
+            <Book size={40 + Math.random() * 40} />
+          </motion.div>
+        ))}
+
+        {[...Array(6)].map((_, i) => (
+          <motion.div
+            key={`pen-${i}`}
+            initial={{ 
+              x: Math.random() * 100 + "%", 
+              y: Math.random() * 100 + "%",
+              rotate: Math.random() * 360,
+              opacity: 0
+            }}
+            animate={{ 
+              x: [null, (Math.random() - 0.5) * 300 + "px"],
+              y: [null, (Math.random() - 0.5) * 300 + "px"],
+              rotate: [null, Math.random() * 720],
+              opacity: [0, 0.1, 0],
+              scale: [0.5, 1, 0.5]
+            }}
+            transition={{ 
+              duration: 12 + Math.random() * 8, 
+              repeat: Infinity, 
+              ease: "easeInOut",
+              delay: i * 2.5
+            }}
+            className="absolute text-indigo-600/15"
+          >
+            <Pen size={30 + Math.random() * 30} />
+          </motion.div>
+        ))}
+
+        {[...Array(4)].map((_, i) => (
+          <motion.div
+            key={`pencil-${i}`}
+            initial={{ 
+              x: Math.random() * 100 + "%", 
+              y: Math.random() * 100 + "%",
+              rotate: Math.random() * 360,
+              opacity: 0
+            }}
+            animate={{ 
+              x: [null, (Math.random() - 0.5) * 400 + "px"],
+              y: [null, (Math.random() - 0.5) * 400 + "px"],
+              rotate: [null, -Math.random() * 360],
+              opacity: [0, 0.1, 0],
+              scale: [0.7, 1.1, 0.7]
+            }}
+            transition={{ 
+              duration: 20 + Math.random() * 5, 
+              repeat: Infinity, 
+              ease: "easeInOut",
+              delay: i * 3
+            }}
+            className="absolute text-pink-600/10"
+          >
+            <Pencil size={25 + Math.random() * 25} />
+          </motion.div>
+        ))}
+      </div>
+
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-stone-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
@@ -236,7 +355,14 @@ export default function App() {
             </div>
             <div>
               <div className="flex items-center gap-4">
-                <h1 className="font-black text-xl leading-tight tracking-tight">RAJ LAB ASSISTANT</h1>
+                <motion.h1 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  whileHover={{ scale: 1.05 }}
+                  className="font-display font-black text-2xl leading-tight tracking-tighter bg-gradient-to-r from-indigo-600 via-orange-600 to-pink-600 bg-clip-text text-transparent hover:drop-shadow-[0_0_15px_rgba(249,115,22,0.3)] transition-all cursor-default"
+                >
+                  LAB ASSISTANT
+                </motion.h1>
                 <div className="flex flex-col gap-1.5">
                   <a 
                     href="https://instagram.com/_rahul18x" 
@@ -266,10 +392,16 @@ export default function App() {
               )}
             </button>
 
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] font-bold text-orange-600 uppercase tracking-tighter">Exam Countdown</span>
-              <div className="flex items-center gap-2 text-stone-900">
-                <Clock size={16} className="text-stone-400" />
+            <div className="flex flex-col items-end group">
+              <motion.span 
+                animate={{ opacity: [1, 0.5, 1], scale: [1, 1.05, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="text-[10px] font-black text-orange-600 uppercase tracking-tighter"
+              >
+                Exam Countdown
+              </motion.span>
+              <div className="flex items-center gap-2 text-stone-900 bg-stone-100/50 px-4 py-1.5 rounded-full border border-stone-200 group-hover:bg-orange-50 group-hover:border-orange-200 transition-all">
+                <Clock size={16} className="text-stone-400 group-hover:text-orange-500" />
                 <span className="text-sm font-black tabular-nums">
                   {timeLeft.days}D : {timeLeft.hours}H : {timeLeft.mins}M
                 </span>
@@ -279,9 +411,19 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-10 grid grid-cols-1 lg:grid-cols-12 gap-10">
+      <motion.main 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="max-w-7xl mx-auto px-4 py-10 grid grid-cols-1 lg:grid-cols-12 gap-10 relative z-10"
+      >
         {/* Sidebar / Topic List */}
-        <aside className="lg:col-span-4 space-y-6">
+        <motion.aside 
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+          className="lg:col-span-4 space-y-6"
+        >
           <div className="bg-white p-6 rounded-[2.5rem] border border-stone-200 shadow-xl shadow-stone-100/50">
             <h3 className="text-lg font-black mb-4 flex items-center gap-2">
               <ListChecks className="text-orange-600" size={20} />
@@ -328,9 +470,11 @@ export default function App() {
             </div>
           </div>
 
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.02, y: -5 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setShowChat(true)}
-            className="w-full p-8 bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-[2.5rem] text-white shadow-2xl shadow-indigo-200 relative overflow-hidden group text-left"
+            className="w-full p-8 bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-700 rounded-[2.5rem] text-white shadow-2xl shadow-indigo-200 relative overflow-hidden group text-left border-b-8 border-indigo-900/20 active:border-b-0 transition-all"
           >
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
               <Sparkles size={120} />
@@ -346,11 +490,16 @@ export default function App() {
                 अपने किसी भी सवाल का जवाब पाएं। यहाँ पूछें! (Chat with AI)
               </p>
             </div>
-          </button>
-        </aside>
+          </motion.button>
+        </motion.aside>
 
         {/* Content Area */}
-        <section className="lg:col-span-8">
+        <motion.section 
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.4, duration: 0.6 }}
+          className="lg:col-span-8"
+        >
           <AnimatePresence mode="wait">
             {!selectedTopic && !selectedPaper ? (
                <div className="space-y-10">
@@ -602,19 +751,27 @@ export default function App() {
               </motion.div>
             )}
           </AnimatePresence>
-        </section>
-      </main>
+        </motion.section>
+      </motion.main>
 
-      <footer className="bg-white border-t border-stone-200 py-12 mt-20">
+      <motion.footer 
+        initial={{ opacity: 0, y: 50 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        className="bg-white/40 backdrop-blur-xl border-t border-stone-200 py-16 mt-20 relative z-10"
+      >
         <div className="max-w-7xl mx-auto px-4">
-           <div className="flex flex-col md:flex-row items-center justify-between gap-8 opacity-40">
-                <div className="flex items-center gap-3">
+           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                <div className="flex items-center gap-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all">
                     <GraduationCap size={24} />
-                    <span className="font-black">STUDY ASSISTANT</span>
+                    <span className="font-display font-black tracking-tighter">LAB ASSISTANT</span>
                 </div>
                 <div className="text-center flex flex-col items-center gap-4">
                   <p className="text-xs font-bold uppercase tracking-widest opacity-60">© 2026 Rajasthan Lab Assistant Exam Preparation</p>
-                  <div className="flex flex-col items-center gap-3">
+                  <motion.div 
+                    whileHover={{ scale: 1.05, y: -5 }}
+                    className="flex flex-col items-center gap-3 cursor-default"
+                  >
                     <p className="text-2xl italic font-serif text-stone-900 tracking-tighter">
                       Created by <span className="text-orange-600 font-black">_rahul18x</span>
                     </p>
@@ -631,7 +788,7 @@ export default function App() {
                         Insta _rahul18x
                       </a>
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
                 <div className="flex items-center gap-6">
                     <span className="w-1.5 h-1.5 bg-orange-600 rounded-full animate-bounce" />
@@ -640,7 +797,7 @@ export default function App() {
                 </div>
            </div>
         </div>
-      </footer>
+      </motion.footer>
 
       {/* Global CSS for markdown fixes */}
       <style>{`
@@ -756,7 +913,12 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="space-y-8">
+                <motion.div 
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+            className="space-y-8"
+          >
                   <div className="bg-stone-50 p-8 rounded-[2rem] border border-stone-100">
                     <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-4">Set Duration (Minutes)</label>
                     <div className="flex items-center gap-6">
@@ -825,7 +987,7 @@ export default function App() {
                       )}
                     </div>
                   </div>
-                </div>
+                </motion.div>
               </div>
             </motion.div>
           </div>
